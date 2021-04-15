@@ -1,0 +1,14 @@
+version: 1
+send_anonymous_usage_stats: true
+project_id: tap-procore
+plugins:
+  extractors:
+  - name: tap-procore
+    namespace: tap_procore
+    # TODO: To test using Meltano, replace with absolute path
+    #       to the tap-procore.sh script:
+    executable: ./tap-procore.sh
+  loaders:
+  - name: target-jsonl
+    variant: andyh1203
+    pip_url: target-jsonl
