@@ -16,18 +16,22 @@ from singer_sdk.typing import (
     StringType,
 )
 
-# TODO: Import your custom stream types here:
 from tap_procore.streams import (
     ProcoreStream,
 
     CompaniesStream,
+    ProjectsStream,
+    FoldersStream,
+    FilesStream
 )
 
 
-# TODO: Compile a list of custom stream types here
-#       OR rewrite discover_streams() below with your custom logic.
+# List of available streams
 STREAM_TYPES = [
-    CompaniesStream
+    CompaniesStream,
+    ProjectsStream,
+    FoldersStream,
+    FilesStream
 ]
 
 

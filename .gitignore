@@ -1,3 +1,4 @@
 hidden-tests/
 .secrets/
 .pytest_cache/
+__pycache__/

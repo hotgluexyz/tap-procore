@@ -10,7 +10,7 @@ SAMPLE_CONFIG = {
     "start_date": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d"),
     "client_id": "",
     "client_secret": "",
-    "redirect_uri": "https://oauth.pstmn.io/v1/callback",
+    "redirect_uri": "",
     "refresh_token": "",
     "is_sandbox": True
 }
