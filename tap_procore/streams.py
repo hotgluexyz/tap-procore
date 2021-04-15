@@ -29,6 +29,8 @@ from singer_sdk.typing import (
     StringType,
 )
 
+from singer.catalog import Catalog
+
 SCHEMAS_DIR = Path(__file__).parent / Path("./schemas")
 
 
@@ -64,6 +66,19 @@ class ProcoreStream(RESTStream):
             stream=self,
             auth_endpoint=auth_endpoint
         )
+
+
+    def apply_catalog(self, catalog_dict: dict) -> None:
+        """Apply a catalog dict, updating any settings overridden within the catalog."""
+        catalog = Catalog.from_dict(catalog_dict)
+        catalog_entry: singer.CatalogEntry = catalog.get_stream(self.name)
+        if not catalog_entry:
+            # TODO: Get rid of this. Causes all streams to be synced regardless of catalog
+            return
+        self.primary_keys = catalog_entry.key_properties
+        self.replication_key = catalog_entry.replication_key
+        if catalog_entry.replication_method:
+            self.forced_replication_method = catalog_entry.replication_method
 
 
 class CompaniesStream(ProcoreStream):
