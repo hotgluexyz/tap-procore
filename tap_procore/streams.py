@@ -89,9 +89,8 @@ class ProjectsStream(ProcoreStream):
     primary_keys = ["id"]
     replication_key = None
 
-    def get_companies(self):
+    def get_companies(self, headers):
         endpoint = f"{self.url_base}/companies"
-        headers = self.authenticator.auth_headers
         r = requests.get(endpoint, headers=headers)
         companies = r.json()
         return companies
@@ -105,7 +104,8 @@ class ProjectsStream(ProcoreStream):
         Developers may override this property to provide a default partitions list.
         """
         result: List[dict] = []
-        companies = self.get_companies()
+        headers = self.authenticator.auth_headers
+        companies = self.get_companies(headers)
 
         for company in companies:
             result.append({
@@ -141,9 +141,8 @@ class FoldersStream(ProjectsStream):
     primary_keys = ["id"]
     replication_key = None
 
-    def get_projects(self):
-        companies = self.get_companies()
-        headers = self.authenticator.auth_headers
+    def get_projects(self, headers):
+        companies = self.get_companies(headers)
         projects = []
 
         for company in companies:
@@ -162,7 +161,8 @@ class FoldersStream(ProjectsStream):
         Developers may override this property to provide a default partitions list.
         """
         result: List[dict] = []
-        projects = self.get_projects()
+        headers = self.authenticator.auth_headers
+        projects = self.get_projects(headers)
 
         for project in projects:
             result.append({
@@ -215,9 +215,8 @@ class FilesStream(FoldersStream):
 
         return folders
 
-    def get_folders(self):
-        projects = self.get_projects()
-        headers = self.authenticator.auth_headers
+    def get_folders(self, headers):
+        projects = self.get_projects(headers)
         folders = []
 
         for project in projects:
@@ -248,7 +247,8 @@ class FilesStream(FoldersStream):
         defined in state, otherwise None.
         Developers may override this property to provide a default partitions list.
         """
-        folders = self.get_folders()
+        headers = self.authenticator.auth_headers
+        folders = self.get_folders(headers)
         return folders
 
     def get_url_params(
