@@ -190,6 +190,66 @@ class FoldersStream(ProjectsStream):
     ).to_dict()
 
 
+class ProjectRolesStream(ProjectsStream):
+    name = "project_roles"
+
+    path = "/project_roles"
+
+    primary_keys = ["id"]
+    replication_key = None
+
+    def get_projects(self, headers):
+        companies = self.get_companies(headers)
+        projects = []
+
+        for company in companies:
+            endpoint = f"{self.url_base}/projects?company_id={company['id']}"
+            r = requests.get(endpoint, headers=headers)
+            projects.extend(r.json())
+
+        return projects
+
+    @property
+    def partitions(self) -> Optional[List[dict]]:
+        """Return a list of partition key dicts (if applicable), otherwise None.
+
+        By default, this method returns a list of any partitions which are already
+        defined in state, otherwise None.
+        Developers may override this property to provide a default partitions list.
+        """
+        result: List[dict] = []
+        headers = self.authenticator.auth_headers
+        projects = self.get_projects(headers)
+
+        for project in projects:
+            result.append({
+                'project_id': project['id']
+            })
+        return result or None
+
+    def get_url_params(
+        self,
+        partition: Optional[dict],
+        next_page_token: Optional[Any] = None
+    ) -> Dict[str, Any]:
+        """Return a dictionary of values to be used in URL parameterization.
+
+        If paging is supported, developers may override this method with specific paging
+        logic.
+        """
+        params = {}
+        params["project_id"] = partition["project_id"]
+        return params
+
+    schema = PropertiesList(
+        Property("id", IntegerType),
+        Property("name", StringType),
+        Property("role", StringType),
+        Property("user_id", IntegerType),
+        Property("is_active", BooleanType)
+    ).to_dict()
+
+
 class FilesStream(FoldersStream):
     name = "files"
 
@@ -267,6 +327,8 @@ class FilesStream(FoldersStream):
 
     schema = PropertiesList(
         Property("id", IntegerType),
+        Property("name", StringType),
+        Property("name_with_path", StringType),
         Property("files", ArrayType(ObjectType(
             Property("id", IntegerType),
             Property("name", StringType),
@@ -283,6 +345,5 @@ class FilesStream(FoldersStream):
                     Property("filename", StringType)
                 ))
             )))
-        ))),
-        Property("name", StringType)
+        )))
     ).to_dict()
