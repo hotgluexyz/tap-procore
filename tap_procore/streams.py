@@ -249,6 +249,73 @@ class ProjectRolesStream(ProjectsStream):
         Property("is_active", BooleanType)
     ).to_dict()
 
+class ProjectUsersStream(ProjectsStream):
+    name = "users"
+
+    path = "/projects"
+
+    primary_keys = ["id"]
+    replication_key = None
+
+    def get_projects(self, headers):
+        companies = self.get_companies(headers)
+        projects = []
+
+        for company in companies:
+            endpoint = f"{self.url_base}/projects?company_id={company['id']}"
+            r = requests.get(endpoint, headers=headers)
+            projects.extend(r.json())
+
+        return projects
+
+    def get_url(self, partition: Optional[dict]) -> str:
+        url = super().get_url(partition)
+        sub_url = f"{url}/{partition['project_id']}/users"
+        return sub_url
+
+    @property
+    def partitions(self) -> Optional[List[dict]]:
+        """Return a list of partition key dicts (if applicable), otherwise None.
+
+        By default, this method returns a list of any partitions which are already
+        defined in state, otherwise None.
+        Developers may override this property to provide a default partitions list.
+        """
+        result: List[dict] = []
+        headers = self.authenticator.auth_headers
+        projects = self.get_projects(headers)
+
+        for project in projects:
+            result.append({
+                'project_id': project['id']
+            })
+        return result or None
+
+    def get_url_params(
+        self,
+        partition: Optional[dict],
+        next_page_token: Optional[Any] = None
+    ) -> Dict[str, Any]:
+        """Return a dictionary of values to be used in URL parameterization.
+
+        If paging is supported, developers may override this method with specific paging
+        logic.
+        """
+        return {}
+
+    schema = PropertiesList(
+        Property("id", IntegerType),
+        Property("name", StringType),
+        Property("first_name", StringType),
+        Property("last_name", StringType),
+        Property("address", StringType),
+        Property("email_address", StringType),
+        Property("mobile_phone", StringType),
+        Property("vendor", ObjectType(
+            Property("id", IntegerType),
+            Property("name", StringType)
+        ))
+    ).to_dict()
 
 class FilesStream(FoldersStream):
     name = "files"

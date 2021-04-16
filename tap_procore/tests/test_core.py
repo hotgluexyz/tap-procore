@@ -8,10 +8,10 @@ from tap_procore.tap import TapProcore
 
 SAMPLE_CONFIG = {
     "start_date": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d"),
-    "client_id": "",
-    "client_secret": "",
-    "redirect_uri": "",
-    "refresh_token": "",
+    "client_id": "8bf080126bdcd81f46b5be811b8a71fc7177a37745c60ffefd6be45608b0c372",
+    "client_secret": "9bc43ac6a406248cec9acb6987df38b505146993b8da4f8ecefad2fba690b1b7",
+    "redirect_uri": "https://oauth.pstmn.io/v1/callback",
+    "refresh_token": "b28cc7d3597dc1b0002d74ff97db18f961cb7d962d7e55995c7e79b9ff694cfe",
     "is_sandbox": True
 }
 

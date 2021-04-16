@@ -23,7 +23,8 @@ from tap_procore.streams import (
     ProjectsStream,
     FoldersStream,
     FilesStream,
-    ProjectRolesStream
+    ProjectRolesStream,
+    ProjectUsersStream
 )
 
 
@@ -33,7 +34,8 @@ STREAM_TYPES = [
     ProjectsStream,
     FoldersStream,
     FilesStream,
-    ProjectRolesStream
+    ProjectRolesStream,
+    ProjectUsersStream
 ]
 
 
