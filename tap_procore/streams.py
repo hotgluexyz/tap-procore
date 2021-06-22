@@ -170,6 +170,12 @@ class FoldersStream(ProjectsStream):
             })
         return result or None
 
+    def post_process(self, row: dict, context: Optional[dict] = None) -> dict:
+        """As needed, append or transform raw data to match expected structure."""
+        # Add project_id to response
+        row['project_id'] = context['project_id']
+        return row
+
     def get_url_params(
         self,
         partition: Optional[dict],
@@ -186,6 +192,7 @@ class FoldersStream(ProjectsStream):
 
     schema = PropertiesList(
         Property("id", IntegerType),
+        Property("project_id", IntegerType),
         Property("name", StringType)
     ).to_dict()
 
@@ -227,6 +234,12 @@ class ProjectRolesStream(ProjectsStream):
             })
         return result or None
 
+    def post_process(self, row: dict, context: Optional[dict] = None) -> dict:
+        """As needed, append or transform raw data to match expected structure."""
+        # Add project_id to response
+        row['project_id'] = context['project_id']
+        return row
+
     def get_url_params(
         self,
         partition: Optional[dict],
@@ -243,6 +256,7 @@ class ProjectRolesStream(ProjectsStream):
 
     schema = PropertiesList(
         Property("id", IntegerType),
+        Property("project_id", IntegerType),
         Property("name", StringType),
         Property("role", StringType),
         Property("user_id", IntegerType),
@@ -291,6 +305,12 @@ class ProjectUsersStream(ProjectsStream):
             })
         return result or None
 
+    def post_process(self, row: dict, context: Optional[dict] = None) -> dict:
+        """As needed, append or transform raw data to match expected structure."""
+        # Add project_id to response
+        row['project_id'] = context['project_id']
+        return row
+
     def get_url_params(
         self,
         partition: Optional[dict],
@@ -305,6 +325,7 @@ class ProjectUsersStream(ProjectsStream):
 
     schema = PropertiesList(
         Property("id", IntegerType),
+        Property("project_id", IntegerType),
         Property("name", StringType),
         Property("first_name", StringType),
         Property("last_name", StringType),
@@ -378,6 +399,12 @@ class FilesStream(FoldersStream):
         folders = self.get_folders(headers)
         return folders
 
+    def post_process(self, row: dict, context: Optional[dict] = None) -> dict:
+        """As needed, append or transform raw data to match expected structure."""
+        # Add project_id to response
+        row['project_id'] = context['project_id']
+        return row
+
     def get_url_params(
         self,
         partition: Optional[dict],
@@ -394,6 +421,7 @@ class FilesStream(FoldersStream):
 
     schema = PropertiesList(
         Property("id", IntegerType),
+        Property("project_id", IntegerType),
         Property("name", StringType),
         Property("name_with_path", StringType),
         Property("files", ArrayType(ObjectType(
