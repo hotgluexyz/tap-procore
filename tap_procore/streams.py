@@ -402,7 +402,7 @@ class FilesStream(FoldersStream):
     def post_process(self, row: dict, context: Optional[dict] = None) -> dict:
         """As needed, append or transform raw data to match expected structure."""
         # Add project_id to response
-        row['project_id'] = context['project_id']
+        row['project_id'] = context['project']
         return row
 
     def get_url_params(
