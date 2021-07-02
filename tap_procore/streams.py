@@ -113,6 +113,12 @@ class ProjectsStream(ProcoreStream):
             })
         return result or None
 
+    def post_process(self, row: dict, context: Optional[dict] = None) -> dict:
+        """As needed, append or transform raw data to match expected structure."""
+        # Add project_id to response
+        row['company_id'] = context['company_id']
+        return row
+
     def get_url_params(
         self,
         partition: Optional[dict],
@@ -129,6 +135,7 @@ class ProjectsStream(ProcoreStream):
 
     schema = PropertiesList(
         Property("id", IntegerType),
+        Property("company_id", IntegerType),
         Property("name", StringType)
     ).to_dict()
 
@@ -372,6 +379,9 @@ class FilesStream(FoldersStream):
             r = requests.get(endpoint, headers=headers)
             data = r.json().get('folders', [])
 
+            # Add root folder
+            folders.append({'folder': -1, 'project': project['id']})
+
             # Add these folders to final output
             folders.extend(
                 [{'folder': x['id'], 'project': project['id']} for x in data])
@@ -384,8 +394,13 @@ class FilesStream(FoldersStream):
 
     def get_url(self, partition: Optional[dict]) -> str:
         url = super().get_url(partition)
-        sub_url = f"{url}/{partition['folder']}"
-        return sub_url
+
+        # Handle sub folders
+        if partition['folder'] != -1:
+            sub_url = f"{url}/{partition['folder']}"
+            return sub_url
+
+        return url
 
     @property
     def partitions(self) -> Optional[List[dict]]:

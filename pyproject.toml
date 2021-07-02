@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "tap-procore"
-version = "0.0.6"
+version = "0.0.7"
 description = "`tap-procore` is Singer tap for procore, built with the Singer SDK."
 authors = ["hotglue"]
 license = "Apache 2.0"
