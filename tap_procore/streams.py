@@ -6,8 +6,11 @@ import requests
 from pathlib import Path
 from typing import Any, Dict, Optional, Union, List, Iterable
 
+from singer.schema import Schema
 
 from singer_sdk.streams import RESTStream
+from singer_sdk.helpers._util import utc_now
+from singer_sdk.plugin_base import PluginBase as TapBaseClass
 
 
 from singer_sdk.authenticators import (
@@ -40,15 +43,46 @@ class ProcoreAuthenticator(OAuthAuthenticator):
             'grant_type': 'refresh_token',
             'client_id': self.config["client_id"],
             'client_secret': self.config["client_secret"],
-            'refresh_token': self.config["refresh_token"],
+            'refresh_token': self.config["refresh_token"] if not self.refresh_token else self.refresh_token,
             'redirect_uri': self.config["redirect_uri"]
         }
 
         return req
 
+    def update_access_token(self):
+        """Update `access_token` along with: `last_refreshed` and `expires_in`."""
+        request_time = utc_now()
+        auth_request_payload = self.oauth_request_payload
+        token_response = requests.post(self.auth_endpoint, data=auth_request_payload)
+        try:
+            token_response.raise_for_status()
+            self.logger.info("OAuth authorization attempt was successful.")
+        except Exception as ex:
+            raise RuntimeError(
+                f"Failed OAuth login, response was '{token_response.json()}'. {ex}"
+            )
+        token_json = token_response.json()
+        self.access_token = token_json["access_token"]
+        self.expires_in = token_json["expires_in"]
+        self.last_refreshed = request_time
+
+        if token_json.get("refresh_token") is not None:
+            self.refresh_token = token_json["refresh_token"]
+
 
 class ProcoreStream(RESTStream):
     """Procore stream class."""
+
+    def __init__(
+        self,
+        tap: TapBaseClass,
+        name: Optional[str] = None,
+        schema: Optional[Union[Dict[str, Any], Schema]] = None,
+        path: Optional[str] = None,
+    ):
+        """Initialize the Procore stream."""
+        super().__init__(name=name, schema=schema, tap=tap, path=path)
+        self._config = tap._config
 
     @property
     def url_base(self) -> str:
@@ -57,13 +91,16 @@ class ProcoreStream(RESTStream):
 
     @property
     def authenticator(self) -> APIAuthenticatorBase:
-        auth_endpoint = "https://login-sandbox.procore.com/oauth/token" if self.config[
-            "is_sandbox"] else "https://login.procore.com/oauth/token"
+        if not self._config.get("authenticator"):
+            auth_endpoint = "https://login-sandbox.procore.com/oauth/token" if self.config[
+                "is_sandbox"] else "https://login.procore.com/oauth/token"
 
-        return ProcoreAuthenticator(
-            stream=self,
-            auth_endpoint=auth_endpoint
-        )
+            self._config["authenticator"] = ProcoreAuthenticator(
+                stream=self,
+                auth_endpoint=auth_endpoint
+            )
+
+        return self._config["authenticator"]
 
 
 class CompaniesStream(ProcoreStream):
