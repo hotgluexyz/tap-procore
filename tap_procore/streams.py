@@ -4,7 +4,7 @@
 import requests
 
 from pathlib import Path
-from typing import Any, Dict, Optional, Union, List, Iterable
+from typing import Any, Dict, Optional, Union, List, Iterable, cast
 
 from singer.schema import Schema
 
@@ -150,6 +150,49 @@ class ProjectsStream(ProcoreStream):
             })
         return result or None
 
+    def prepare_request(
+        self, context: Optional[dict], next_page_token: Optional[Any]
+    ) -> requests.PreparedRequest:
+        """Prepare a request object.
+
+        If partitioning is supported, the `context` object will contain the partition
+        definitions. Pagination information can be parsed from `next_page_token` if
+        `next_page_token` is not None.
+        """
+        http_method = self.rest_method
+        url: str = self.get_url(context)
+        params: dict = self.get_url_params(context, next_page_token)
+        request_data = self.prepare_request_payload(context, next_page_token)
+        headers = self.http_headers(context)
+
+        authenticator = self.authenticator
+        if authenticator:
+            headers.update(authenticator.auth_headers or {})
+
+        request = cast(
+            requests.PreparedRequest,
+            self.requests_session.prepare_request(
+                requests.Request(
+                    method=http_method,
+                    url=url,
+                    params=params,
+                    headers=headers,
+                    json=request_data,
+                )
+            ),
+        )
+        return request
+
+    def http_headers(self, context: Optional[dict] = None) -> dict:
+        """Return headers dict to be used for HTTP requests.
+
+        If an authenticator is also specified, the authenticator's headers will be
+        combined with `http_headers` when making HTTP requests.
+        """
+        result = super().http_headers
+        result['Procore-Company-Id'] = str(context['company_id'])
+        return result
+
     def post_process(self, row: dict, context: Optional[dict] = None) -> dict:
         """As needed, append or transform raw data to match expected structure."""
         # Add project_id to response
@@ -191,8 +234,13 @@ class FoldersStream(ProjectsStream):
 
         for company in companies:
             endpoint = f"{self.url_base}/projects?company_id={company['id']}"
+            headers['Procore-Company-Id'] = str(company['id'])
             r = requests.get(endpoint, headers=headers)
-            projects.extend(r.json())
+            def add_company(x):
+                x['company_id'] = company['id']
+                return x
+            l = list(map(add_company, r.json()))
+            projects.extend(l)
 
         return projects
 
@@ -210,7 +258,8 @@ class FoldersStream(ProjectsStream):
 
         for project in projects:
             result.append({
-                'project_id': project['id']
+                'project_id': project['id'],
+                'company_id': project['company_id']
             })
         return result or None
 
@@ -255,8 +304,13 @@ class ProjectRolesStream(ProjectsStream):
 
         for company in companies:
             endpoint = f"{self.url_base}/projects?company_id={company['id']}"
+            headers['Procore-Company-Id'] = str(company['id'])
             r = requests.get(endpoint, headers=headers)
-            projects.extend(r.json())
+            def add_company(x):
+                x['company_id'] = company['id']
+                return x
+            l = list(map(add_company, r.json()))
+            projects.extend(l)
 
         return projects
 
@@ -274,7 +328,8 @@ class ProjectRolesStream(ProjectsStream):
 
         for project in projects:
             result.append({
-                'project_id': project['id']
+                'project_id': project['id'],
+                'company_id': project['company_id']
             })
         return result or None
 
@@ -321,8 +376,13 @@ class ProjectUsersStream(ProjectsStream):
 
         for company in companies:
             endpoint = f"{self.url_base}/projects?company_id={company['id']}"
+            headers['Procore-Company-Id'] = str(company['id'])
             r = requests.get(endpoint, headers=headers)
-            projects.extend(r.json())
+            def add_company(x):
+                x['company_id'] = company['id']
+                return x
+            l = list(map(add_company, r.json()))
+            projects.extend(l)
 
         return projects
 
@@ -345,7 +405,8 @@ class ProjectUsersStream(ProjectsStream):
 
         for project in projects:
             result.append({
-                'project_id': project['id']
+                'project_id': project['id'],
+                'company_id': project['company_id']
             })
         return result or None
 
@@ -417,11 +478,11 @@ class FilesStream(FoldersStream):
             data = r.json().get('folders', [])
 
             # Add root folder
-            folders.append({'folder': -1, 'project': project['id']})
+            folders.append({'folder': -1, 'project': project['id'], 'company_id': project['company_id']})
 
             # Add these folders to final output
             folders.extend(
-                [{'folder': x['id'], 'project': project['id']} for x in data])
+                [{'folder': x['id'], 'project': project['id'], 'company_id': project['company_id']} for x in data])
 
             # Recursively get subfolders
             for f in data:

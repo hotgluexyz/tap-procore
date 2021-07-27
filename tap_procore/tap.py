@@ -1,8 +1,9 @@
 """procore tap class."""
+import json
+import traceback
 
 from pathlib import Path, PurePath
 from typing import List, Optional, Union
-import json
 
 from singer_sdk import Tap, Stream
 from singer_sdk.typing import (
@@ -78,6 +79,7 @@ class TapProcore(Tap):
             super().sync_all()
         except Exception as e:
             self.logger.error(e)
+            traceback.print_exc()
         finally:
             # Update config if needed
             self.update_config()
