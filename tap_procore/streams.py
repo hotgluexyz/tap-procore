@@ -453,7 +453,7 @@ class FilesStream(FoldersStream):
 
     def get_subfolders(self, headers, folder, project):
         folders = []
-        endpoint = f"{self.url_base}/folders/{folder}?project_id={project}"
+        endpoint = f"{self.url_base}/folders/{folder}?project_id={project['id']}"
         r = requests.get(endpoint, headers=headers)
         raw_data = r.json()
         data = raw_data.get('folders', [])
@@ -464,7 +464,7 @@ class FilesStream(FoldersStream):
             folders.extend(self.get_subfolders(headers, f['id'], project))
 
         # Add these folders to final output
-        folders.extend([{'folder': x['id'], 'project': project} for x in data])
+        folders.extend([{'folder': x['id'], 'project': project['id'], 'company_id': project['company_id']} for x in data])
 
         return folders
 
@@ -486,7 +486,7 @@ class FilesStream(FoldersStream):
 
             # Recursively get subfolders
             for f in data:
-                folders.extend(self.get_subfolders(headers, f['id'], project['id']))
+                folders.extend(self.get_subfolders(headers, f['id'], project))
 
         return folders
 
