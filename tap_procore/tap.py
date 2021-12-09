@@ -105,5 +105,4 @@ class TapProcore(Tap):
             json.dump(self._config, f, indent=4)
 
 # CLI Execution:
-if __name__=="__main__":
-    TapProcore.cli()
+cli = TapProcore.cli
