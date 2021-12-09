@@ -20,13 +20,13 @@ from singer_sdk.typing import (
 
 from tap_procore.streams import (
     ProcoreStream,
-
     CompaniesStream,
     ProjectsStream,
     FoldersStream,
     FilesStream,
     ProjectRolesStream,
-    ProjectUsersStream
+    ProjectUsersStream,
+    PurchaseOrderStream
 )
 
 
@@ -37,7 +37,8 @@ STREAM_TYPES = [
     FoldersStream,
     FilesStream,
     ProjectRolesStream,
-    ProjectUsersStream
+    ProjectUsersStream,
+    PurchaseOrderStream
 ]
 
 
@@ -104,5 +105,4 @@ class TapProcore(Tap):
             json.dump(self._config, f, indent=4)
 
 # CLI Execution:
-
 cli = TapProcore.cli
