@@ -617,6 +617,7 @@ class PurchaseOrderStream(ProjectsStream):
         logic.
         """
         params = {}
+        params["company_id"] = partition["company_id"]
         params["project_id"] = partition["project_id"]
         return params
 
@@ -629,8 +630,10 @@ class PurchaseOrderStream(ProjectsStream):
             Property("id", IntegerType),
         )),
         Property("bill_to_address", StringType),
+        Property("billing_schedule_of_values_status", StringType),
         Property("contract_date", StringType),
         Property("created_at", DateTimeType),
+        Property("created_by_id", IntegerType),
         Property("deleted_at", DateTimeType),
         Property("delivery_date", StringType),
         Property("description", StringType),
@@ -638,6 +641,8 @@ class PurchaseOrderStream(ProjectsStream):
         Property("executed", BooleanType),
         Property("execution_date", StringType),
         Property("grand_total", StringType),
+        Property("has_change_order_packages", BooleanType),
+        Property("has_potential_change_orders", BooleanType),
         Property("issued_on_date", StringType),
         Property("letter_of_intent_date", StringType),
         Property("number", StringType),
@@ -647,7 +652,7 @@ class PurchaseOrderStream(ProjectsStream):
         Property("payment_terms", StringType),
         Property("pending_change_orders", StringType),
         Property("pending_revised_contract", StringType),
-        Property("percentage_paid", IntegerType),
+        Property("percentage_paid", StringType),
         Property("private", BooleanType),
         Property("project", ObjectType(
             Property("id", IntegerType),
@@ -666,7 +671,7 @@ class PurchaseOrderStream(ProjectsStream):
         Property("title", StringType),
         Property("total_draw_requests_amount", StringType),
         Property("total_payments", StringType),
-        Property("total_requisitions_amount", IntegerType),
+        Property("total_requisitions_amount", StringType),
         Property("updated_at", DateTimeType),
         Property("vendor", ObjectType(
             Property("id", IntegerType),
