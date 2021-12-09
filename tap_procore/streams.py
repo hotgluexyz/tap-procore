@@ -555,3 +555,121 @@ class FilesStream(FoldersStream):
             )))
         )))
     ).to_dict()
+
+
+class PurchaseOrderStream(ProjectsStream):
+    name = "purchase_order_contracts"
+
+    path = "/purchase_order_contracts"
+
+    primary_keys = ["id"]
+    replication_key = None
+
+    def get_projects(self, headers):
+        companies = self.get_companies(headers)
+        projects = []
+
+        for company in companies:
+            endpoint = f"{self.url_base}/projects?company_id={company['id']}"
+            headers['Procore-Company-Id'] = str(company['id'])
+            r = requests.get(endpoint, headers=headers)
+            def add_company(x):
+                x['company_id'] = company['id']
+                return x
+            l = list(map(add_company, r.json()))
+            projects.extend(l)
+
+        return projects
+
+    @property
+    def partitions(self) -> Optional[List[dict]]:
+        """Return a list of partition key dicts (if applicable), otherwise None.
+
+        By default, this method returns a list of any partitions which are already
+        defined in state, otherwise None.
+        Developers may override this property to provide a default partitions list.
+        """
+        result: List[dict] = []
+        headers = self.authenticator.auth_headers
+        projects = self.get_projects(headers)
+
+        for project in projects:
+            result.append({
+                'project_id': project['id'],
+                'company_id': project['company_id']
+            })
+        return result or None
+
+    def post_process(self, row: dict, context: Optional[dict] = None) -> dict:
+        """As needed, append or transform raw data to match expected structure."""
+        # Add project_id to response
+        row['project_id'] = context['project_id']
+        return row
+
+    def get_url_params(
+        self,
+        partition: Optional[dict],
+        next_page_token: Optional[Any] = None
+    ) -> Dict[str, Any]:
+        """Return a dictionary of values to be used in URL parameterization.
+
+        If paging is supported, developers may override this method with specific paging
+        logic.
+        """
+        params = {}
+        params["project_id"] = partition["project_id"]
+        return params
+
+    schema = PropertiesList(
+        Property("id", IntegerType),
+        Property("accounting_method", StringType),
+        Property("approval_letter_date", StringType),
+        Property("approved_change_orders", StringType),
+        Property("assignee", ObjectType(
+            Property("id", IntegerType),
+        )),
+        Property("bill_to_address", StringType),
+        Property("contract_date", StringType),
+        Property("created_at", DateTimeType),
+        Property("deleted_at", DateTimeType),
+        Property("delivery_date", StringType),
+        Property("description", StringType),
+        Property("draft_change_orders_amount", StringType),
+        Property("executed", BooleanType),
+        Property("execution_date", StringType),
+        Property("grand_total", StringType),
+        Property("issued_on_date", StringType),
+        Property("letter_of_intent_date", StringType),
+        Property("number", StringType),
+        Property("origin_code", StringType),
+        Property("origin_data", StringType),
+        Property("origin_id", IntegerType),
+        Property("payment_terms", StringType),
+        Property("pending_change_orders", StringType),
+        Property("pending_revised_contract", StringType),
+        Property("percentage_paid", IntegerType),
+        Property("private", BooleanType),
+        Property("project", ObjectType(
+            Property("id", IntegerType),
+            Property("name", StringType),
+        )),
+        Property("remaining_balance_outstanding", StringType),
+        Property("requisitions_are_enabled", BooleanType),
+        Property("retainage_percent", StringType),
+        Property("returned_date", StringType),
+        Property("revised_contract", StringType),
+        Property("ship_to_address", StringType),
+        Property("ship_via", StringType),
+        Property("show_line_items_to_non_admins", BooleanType),
+        Property("signed_contract_received_date", StringType),
+        Property("status", StringType),
+        Property("title", StringType),
+        Property("total_draw_requests_amount", StringType),
+        Property("total_payments", StringType),
+        Property("total_requisitions_amount", IntegerType),
+        Property("updated_at", DateTimeType),
+        Property("vendor", ObjectType(
+            Property("id", IntegerType),
+            Property("company", StringType),
+        ))
+    ).to_dict()
