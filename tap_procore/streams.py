@@ -11,7 +11,7 @@ from singer.schema import Schema
 from singer_sdk.streams import RESTStream
 from singer_sdk.helpers._util import utc_now
 from singer_sdk.plugin_base import PluginBase as TapBaseClass
-
+import json
 
 from singer_sdk.authenticators import (
     APIAuthenticatorBase,
@@ -68,6 +68,9 @@ class ProcoreAuthenticator(OAuthAuthenticator):
 
         if token_json.get("refresh_token") is not None:
             self.refresh_token = token_json["refresh_token"]
+            self._config['refresh_token'] = token_json["refresh_token"]
+            with open("config.json", "w") as outfile:
+                json.dump(self._config, outfile, indent=4)
 
 
 class ProcoreStream(RESTStream):
@@ -101,6 +104,11 @@ class ProcoreStream(RESTStream):
             )
 
         return self._config["authenticator"]
+    
+    def get_companies(self, headers):
+        endpoint = f"{self.url_base}/companies"
+        r = requests.get(endpoint, headers=headers)
+        return r.json()
 
 
 class CompaniesStream(ProcoreStream):
@@ -677,4 +685,292 @@ class PurchaseOrderStream(ProjectsStream):
             Property("id", IntegerType),
             Property("company", StringType),
         ))
+    ).to_dict()
+
+class ProjectTimecardStream(ProcoreStream):
+
+    name = "project_timecard"
+    path = "/timecard_entries"
+    primary_keys = ["id"]
+    replication_key = None
+
+    def get_project(self, headers):
+        companies = self.get_companies(headers)
+        projects = []
+
+        for company in companies:
+            endpoint = f"{self.url_base}/projects?company_id={company['id']}"
+            headers['Procore-Company-Id'] = str(company['id'])
+            r = requests.get(endpoint, headers=headers)
+
+            def add_company_id(x):
+                x['company_id'] = company['id']
+                return x
+            
+            l = list(map(add_company_id, r.json()))
+            projects.extend(l)
+
+        return projects
+    
+    @property
+    def partitions(self) -> Optional[List[dict]]:
+        result: List[dict] = []
+        headers = self.authenticator.auth_headers
+        projects = self.get_project(headers)
+
+        for project in projects:
+            result.append({
+                'project_id': project['id'],
+                'company_id': project['company_id']
+            })
+        return result or None
+    
+    def post_process(self, row: dict, context: Optional[dict] = None) -> dict:
+        row['project_id'] = context['project_id']
+        return row
+    
+    def get_url_params(
+            self, 
+            partition: Optional[dict] = None, 
+            next_page_token: Optional[Any] = None
+        ) -> Dict[str, Any]:
+        params = {}
+        if partition:
+            params['company_id'] = partition['company_id']
+            params['project_id'] = partition['project_id']
+        return params
+    
+    schema = PropertiesList(
+        Property("id", IntegerType),
+        Property("billable", BooleanType),
+        Property("created_at", DateTimeType),
+        Property("date",DateTimeType),
+        Property("description", StringType),
+        Property("hours", StringType),
+        Property("timesheet_status", StringType),
+        Property("approval_status", StringType),
+        Property("lunch_time", IntegerType),
+        Property("time_in", DateTimeType),
+        Property("time_out", DateTimeType),
+        Property("injured", BooleanType),
+        Property("signed", BooleanType),
+        Property("origin_id", IntegerType),
+        Property("origin_data", StringType),
+        Property("timesheet", ObjectType(
+            Property("id", IntegerType),
+            Property("created_at", DateTimeType),
+            Property("updated_at", DateTimeType),
+            Property("date", DateTimeType),
+            Property("number", IntegerType),
+        )),
+        Property("cost_code", ObjectType(
+            Property("id", IntegerType),
+            Property("name", StringType),
+        )),
+        Property("crew", ObjectType(
+            Property("id", IntegerType),
+            Property("name", StringType),
+            Property("project_id", IntegerType),
+            Property("company_id", IntegerType),
+            Property("employees", ObjectType(
+                Property("id", IntegerType),
+                Property("name", StringType),
+            ),
+            Property("lead", ObjectType(
+                Property("id", IntegerType),
+                Property("name", StringType),
+            )),
+        ))),
+        Property("location", ObjectType(
+            Property("id", IntegerType),
+            Property("name", StringType),
+            Property("node_name", StringType),
+            Property("parent_id", IntegerType),
+        )),
+        Property("party", ObjectType(
+            Property("id", IntegerType),
+            Property("name", StringType),
+        )),
+        Property("sub_job", ObjectType(
+            Property("id", IntegerType),
+            Property("name", StringType),
+            Property("code", StringType),
+        )),
+        Property("timecard_time_type", ObjectType(
+            Property("id", IntegerType),
+            Property("abbreviated_time_type", StringType),
+            Property("company_id", IntegerType),
+            Property("global", BooleanType),
+            Property("time_type", StringType),
+        )),
+        Property("line_item_type_id", IntegerType),
+    ).to_dict()
+
+class CompanyUserStream(ProcoreStream):
+
+    name = "company_user"
+    path = "/users"
+    primary_keys = ["id"]
+    replication_key = None
+
+    
+    @property
+    def partitions(self) -> Optional[List[dict]]:
+        result: List[dict] = []
+        headers = self.authenticator.auth_headers
+        companies = self.get_companies(headers)
+        
+        for company in companies:
+            result.append({
+                'company_id': company['id']
+            })
+        return result or None
+    
+    def prepare_request(
+            self, 
+            context: Optional[dict], 
+            next_page_token: Optional[Any]
+        ) -> requests.PreparedRequest:
+        http_method = "GET"
+        url: str = self.get_url(context)
+        params: dict = self.get_url_params(context, next_page_token)
+        request_data = self.prepare_request_payload(context, next_page_token)
+        headers = self.authenticator.auth_headers
+
+        authenticator = self.authenticator
+        if authenticator:
+            headers = authenticator.auth_headers
+
+        request = cast(
+            requests.PreparedRequest,
+            self.requests_session.prepare_request(
+                requests.Request(
+                    method=http_method, 
+                    url=url, 
+                    params=params, 
+                    headers=headers, 
+                    json=request_data
+                )
+            ),
+        )
+        return request
+
+    def http_headers(self, context: Optional[dict] = None) -> dict:
+        result = super().http_headers
+        result['Procore-Company-Id'] = context['company_id']
+        return result
+    
+    def post_process(self, row: dict, context: Optional[dict] = None) -> dict:
+        row['company_id'] = context['company_id']
+        return row
+    
+    def get_url_params(
+            self, 
+            partition: Optional[dict], 
+            next_page_token: Optional[Any] = None
+        ) -> Dict[str, Any]:
+        params = {}
+        params['company_id'] = partition['company_id']
+        return params
+    
+    schema = PropertiesList(
+        Property("address", StringType),
+        Property("avatar", StringType),
+        Property("business_id", StringType),
+        Property("business_phone", StringType),
+        Property("business_phone_extension", StringType),
+        Property("city", StringType),
+        Property("contact_id", IntegerType),
+        Property("country_code", StringType),
+        Property("email_address", StringType),
+        Property("email_signature", StringType),
+        Property("employee_id", StringType),
+        Property("fax_number", StringType),
+        Property("first_name", StringType),
+        Property("id", IntegerType),
+        Property("initials", StringType),
+        Property("is_active", BooleanType),
+        Property("is_employee", BooleanType),
+        Property("is_insurance_manager", BooleanType),
+        Property("job_title", StringType),
+        Property("last_login_at", DateTimeType),
+        Property("last_name", StringType),
+        Property("mobile_phone", StringType),
+        Property("name", StringType),
+        Property("notes", StringType),
+        Property("state_code", StringType),
+        Property("zip", StringType),
+        Property("origin_id", StringType),
+        Property("origin_data", StringType),
+        Property("vendor", ObjectType(
+            Property("id", IntegerType),
+            Property("name", StringType),
+        )),
+        Property("work_classification_id", IntegerType),
+        Property("default_permission_template_id", IntegerType),
+        Property("company_permission_template_id", IntegerType),
+    ).to_dict()
+
+class ProjectUserStream(ProcoreStream):
+    
+    name = "project_user"
+    path = "/users"
+    primary_keys = ["id"]
+    replication_key = None
+
+    def get_projects(self, headers):
+        companies = self.get_companies(headers)
+        projects = []
+
+        for company in companies:
+            endpoint = f"{self.url_base}/projects?company_id={company['id']}"
+            headers['Procore-Company-Id'] = str(company['id'])
+            r = requests.get(endpoint, headers=headers)
+
+            def add_company(x):
+                x['company_id'] = company['id']
+                return x
+            
+            l = list(map(add_company, r.json()))
+            projects.extend(l)
+
+        return projects
+    
+    @property
+    def partitions(self) -> Optional[List[dict]]:
+        result: List[dict] = []
+        headers = self.authenticator.auth_headers
+        projects = self.get_projects(headers)
+
+        for project in projects:
+            result.append({
+                'project_id': project['id'],
+                'company_id': project['company_id']
+            })
+        return result or None
+    
+    def post_process(self, row: dict, context: Optional[dict] = None) -> dict:
+        row['project_id'] = context['project_id']
+        return row
+    
+    def get_url_params(
+            self, 
+            partition: Optional[dict] = None, 
+            next_page_token: Optional[Any] = None
+        ) -> Dict[str, Any]:
+        params = {}
+        params['company_id'] = partition['company_id']
+        params['project_id'] = partition['project_id']
+        return params
+    
+    schema = PropertiesList(
+        Property("first_name", StringType),
+        Property("id", IntegerType),
+        Property("initials", StringType),
+        Property("last_name", StringType),
+        Property("name", StringType),
+        Property("vendor", ObjectType(
+            Property("id", IntegerType),
+            Property("name", StringType),
+        )),
     ).to_dict()

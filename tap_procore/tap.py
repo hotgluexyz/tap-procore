@@ -26,7 +26,10 @@ from tap_procore.streams import (
     FilesStream,
     ProjectRolesStream,
     ProjectUsersStream,
-    PurchaseOrderStream
+    PurchaseOrderStream,
+    ProjectTimecardStream,
+    CompanyUserStream,
+    ProjectUserStream,
 )
 
 
@@ -38,7 +41,10 @@ STREAM_TYPES = [
     FilesStream,
     ProjectRolesStream,
     ProjectUsersStream,
-    PurchaseOrderStream
+    PurchaseOrderStream,
+    ProjectTimecardStream,
+    CompanyUserStream,
+    ProjectUserStream,
 ]
 
 
@@ -106,3 +112,5 @@ class TapProcore(Tap):
 
 # CLI Execution:
 cli = TapProcore.cli
+if __name__ == '__main__':
+    TapProcore.cli()
